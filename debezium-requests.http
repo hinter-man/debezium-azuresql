@@ -1,0 +1,70 @@
+
+
+@kafka_connect_endpoint = http://localhost:8083 
+
+
+### check if kafka connect is running
+
+GET {{kafka_connect_endpoint}} HTTP/1.1
+Content-Type: application/json
+
+### get list of connectors
+
+GET {{kafka_connect_endpoint}}/connectors HTTP/1.1
+
+### add source connector
+
+POST {{kafka_connect_endpoint}}/connectors HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "user-connector", 
+  "config": {
+      "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector", 
+      "database.hostname": "<hostname>", 
+      "database.port": "1433", 
+      "database.user": "<username>", 
+      "database.password": "<password>", 
+      "database.dbname": "<db-name>", 
+      "database.server.name": "<server-name>", 
+      "table.include.list": "dbo.<your-table>", 
+      "database.history.kafka.bootstrap.servers": "kafka:9092", 
+      "database.history.kafka.topic": "dbhistory.<your-table>" 
+  }
+}
+
+
+### add sink connector
+POST {{kafka_connect_endpoint}}/connectors HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "sql-sink-connector",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "<topics>",
+    "connection.url": "<get connection string e.g. from azure portal>",
+    "transforms": "dropPrefix,unwrap",
+    "transforms.dropPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.dropPrefix.regex": "<dbserver>\\.dbo\\.(.*)",
+    "transforms.dropPrefix.replacement": "$1",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": false,
+    "auto.create": true,
+    "insert.mode": "upsert",
+    "delete.enabled": true,
+    "pk.mode": "record_key"
+  }
+}
+
+### check if connector exists
+
+GET {{kafka_connect_endpoint}}/connectors/sql-sink-connector HTTP/1.1
+
+
+### delete a connector
+
+DELETE {{kafka_connect_endpoint}}/connectors/sql-sink-connector HTTP/1.1
+
+
